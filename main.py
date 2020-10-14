@@ -1,10 +1,12 @@
+#!/usr/bin/env python3
+
+import argparse
 import logging
-from logging import handlers
 import sqlite3
-import urllib.request
-import urllib.error
-from datetime import datetime
 import time
+import urllib.error
+import urllib.request
+from logging import handlers
 
 DB_NAME = "./test.sqlite3"
 SAMPLE_FILE = "./sample.txt"
@@ -18,14 +20,16 @@ LOG_FILE = "log.log"
 
 LOG_FORMAT = "%(asctime)s worker-%(process)d %(levelname)s:  %(message)s"
 LOG_LEVEL = 10
-          #CRITICAL = 50
-          #FATAL = CRITICAL
-          #ERROR = 40
-          #WARNING = 30
-          #WARN = WARNING
-          #INFO = 20
-          #DEBUG = 10
-          #NOTSET = 0
+
+
+# CRITICAL = 50
+# FATAL = CRITICAL
+# ERROR = 40
+# WARNING = 30
+# WARN = WARNING
+# INFO = 20
+# DEBUG = 10
+# NOTSET = 0
 
 def main():
     logging.basicConfig(
@@ -68,7 +72,8 @@ def main():
         print(url)
         logging.debug(url)
 
-        cursor.execute("UPDATE urls SET status=? WHERE id=? AND status=?", (STATUS_PROCESSING, url[0], STATUS_NEW))
+        cursor.execute("UPDATE urls SET status=? WHERE id=? AND status=?",
+                       (STATUS_PROCESSING, url[0], STATUS_NEW))
         if cursor.rowcount < 1:
             continue
 
@@ -82,7 +87,8 @@ def main():
             delta = end - start
             print(f"{address} — {response.code} in {delta:.2f}s")
             logging.debug(f"{address} — {response.code}")
-            cursor.execute("UPDATE urls SET status=?, http_code=? WHERE id=?", (STATUS_DONE, response.code, url[0]))
+            cursor.execute("UPDATE urls SET status=?, http_code=? WHERE id=?",
+                           (STATUS_DONE, response.code, url[0]))
             conn.commit()
         except urllib.error.URLError as e:
             print(f"{address} — {e.reason}")
@@ -97,5 +103,25 @@ def main():
         logging.debug(u)
         u = cursor.fetchone()
 
+
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(
+        description="Workers manager.",
+        epilog="""
+        The above flags could be used simultaneously.
+        However, actions would be executed in the certain order: 
+        0 — `stop`
+        1 — `erase`
+        2 — `load`
+        3 — `workers` & `debug`
+        """)
+    parser.add_argument("-s", "--stop", help="Stop all running workers", action="store_true")
+    parser.add_argument("-e", "--erase", help="Erase database.", action="store_true")
+    parser.add_argument("-l", "--load", help="Path to a file with urls to load into database",
+                        type=str)
+    parser.add_argument("-w", "--workers", help="Start given number of workers", type=int)
+    parser.add_argument("-d", "--debug", help="Enable debug logging in workers",
+                        action="store_true")
+    args = parser.parse_args()
+    print(f"args: {args}")
+    # main()
