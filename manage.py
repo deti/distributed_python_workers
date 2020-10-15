@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
-from subprocess import Popen, getoutput
+import logging
 import os
-from os import path
 import signal
+from os import path
+from subprocess import Popen, getoutput
 
 import utils
 from db import DatabaseAdapter
@@ -12,9 +13,16 @@ from db import DatabaseAdapter
 WORKER_PIDS = ".pids"
 WORKER = "worker.py"
 
+
+def _info(message, sender: str):
+    print(message)
+    logging.info(f"{sender} — {message}")
+
+
 def get_pid_file():
     pid_file = path.join(utils.project_dir(), WORKER_PIDS)
     return pid_file
+
 
 def kill_workers():
     pid_file = get_pid_file()
@@ -27,24 +35,48 @@ def kill_workers():
             try:
                 pid = int(pid)
             except ValueError:
+                logging.debug(f"kill_workers could not parse pid `{pid}`")
                 continue
-            print(f"Stopping worker process: {pid}")
+
+            _info(f"Stopping worker process: {pid}", "kill_workers")
             outputs = getoutput(f"ps -p {pid}")
-            print(f"outputs {outputs}")
             if WORKER in outputs:
                 os.kill(pid, signal.SIGTERM)
                 count += 1
-    # os.remove(pid_file)
-    print(f"Stopped {count} workers")
+            else:
+                logging.debug(
+                    f"Looks like process {pid} isn't a worker"
+                    f"`ps -p` result: `{outputs}`"
+                )
+    os.remove(pid_file)
+    _info(f"Stopped {count} workers", "kill_workers")
+
 
 def erase_database():
-    print("Erasing database")
     database = DatabaseAdapter()
     database.drop_urls_table()
+    _info("Database cleaned", "erase_database")
 
 
 def load_urls_to_database(urls_file: str):
-    print(f"Loading {urls_file} into database")
+    _info(f"Loading `{urls_file}` into database", "load_urls_to_database")
+    count = 0
+    errors = 0
+    database = DatabaseAdapter()
+
+    if not path.isfile(urls_file):
+        _info(f"Given path: `{urls_file}` is not a file", "load_urls_to_database")
+        return
+
+    with open(urls_file) as fp:
+        with database.connect():
+            with database.commit_context():
+                for url in fp:
+                    url = url.strip()
+                    database.insert_url(url)
+                    count += 1
+
+    _info(f"Loaded {count} urls into database with {errors} errors", "load_urls_to_database")
 
 
 def start_workers(count: int, debug: bool):
@@ -52,15 +84,11 @@ def start_workers(count: int, debug: bool):
     worker_cmd = [path.join(utils.project_dir(), WORKER)]
     if debug:
         worker_cmd.append("-d")
-    pids = list()
-    for i in range(count):
-        print(f"Starting worker: {i}")
-        pid = Popen(worker_cmd).pid
-        pids.append(pid)
-        print(f"Started worker: {i} — {pid}")
 
     with open(get_pid_file(), "at") as fp:
-        for pid in pids:
+        for i in range(count):
+            pid = Popen(worker_cmd).pid
+            logging.info(f"Started worker with pid {pid}")
             fp.write(f"{pid}\n")
 
 
@@ -83,6 +111,7 @@ if __name__ == '__main__':
     parser.add_argument("-d", "--debug", help="Enable debug logging in workers",
                         action="store_true")
     args = parser.parse_args()
+    utils.configure_logger(args.debug)
 
     if args.stop:
         kill_workers()

@@ -1,38 +1,20 @@
 #!/usr/bin/env python3
 
-import os
 import argparse
 import logging
 import time
 import urllib.error
 import urllib.request
-from logging import handlers
-from os import path
 
 import utils
 from db import DatabaseAdapter
 
-LOG_FILE = "workers.log"
-
-LOG_FORMAT = "%(asctime)s worker-%(process)d %(levelname)s:  %(message)s"
+WORKER_LOG_FORMAT = "%(asctime)s worker-%(process)d %(levelname)s: %(message)s"
 
 GRACE_PERIOD = 30  # seconds
 
 
-def configure_logger(debug: bool):
-    log_file = path.join(utils.project_dir(), LOG_FILE)
-
-    log_level = 20  # INFO
-    if debug:
-        log_level = 10  # DEBUG
-    logging.basicConfig(
-        format=LOG_FORMAT,
-        level=log_level,
-        handlers=[handlers.WatchedFileHandler(filename=log_file)],
-    )
-
-
-def worker(debug: bool):
+def worker():
     database = DatabaseAdapter()
     while True:
         url, url_id = database.get_next_url()
@@ -63,9 +45,9 @@ if __name__ == '__main__':
     parser.add_argument("-d", "--debug", help="Enable debug logging in workers",
                         action="store_true")
     args = parser.parse_args()
-    configure_logger(args.debug)
-    print(f"start worker {os.getpid()}")
-    time.sleep(90)
-    print(f"stop worker {os.getpid()}")
+    utils.configure_logger(
+        debug=args.debug,
+        log_format=WORKER_LOG_FORMAT,
+    )
 
-    # worker(debug=args.debug)
+    worker()
