@@ -8,6 +8,8 @@ import urllib.error
 import urllib.request
 from logging import handlers
 
+import db
+
 DB_NAME = "./test.sqlite3"
 SAMPLE_FILE = "./sample.txt"
 
@@ -105,23 +107,29 @@ def main():
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description="Workers manager.",
-        epilog="""
-        The above flags could be used simultaneously.
-        However, actions would be executed in the certain order: 
-        0 — `stop`
-        1 — `erase`
-        2 — `load`
-        3 — `workers` & `debug`
-        """)
-    parser.add_argument("-s", "--stop", help="Stop all running workers", action="store_true")
-    parser.add_argument("-e", "--erase", help="Erase database.", action="store_true")
-    parser.add_argument("-l", "--load", help="Path to a file with urls to load into database",
-                        type=str)
-    parser.add_argument("-w", "--workers", help="Start given number of workers", type=int)
-    parser.add_argument("-d", "--debug", help="Enable debug logging in workers",
-                        action="store_true")
-    args = parser.parse_args()
-    print(f"args: {args}")
+    database = db.DatabaseAdapter()
+    url_id, url = database.get_next_url()
+    started = database.start_url_processing(url_id)
+    print(f"{url_id} — {url} — started {started}")
+
+    # parser = argparse.ArgumentParser(
+    #     description="Workers manager.",
+    #     epilog="""
+    #     The above flags could be used simultaneously.
+    #     However, actions would be executed in the certain order:
+    #     0 — `stop`
+    #     1 — `erase`
+    #     2 — `load`
+    #     3 — `workers` & `debug`
+    #     """)
+    # parser.add_argument("-s", "--stop", help="Stop all running workers", action="store_true")
+    # parser.add_argument("-e", "--erase", help="Erase database.", action="store_true")
+    # parser.add_argument("-l", "--load", help="Path to a file with urls to load into database",
+    #                     type=str)
+    # parser.add_argument("-w", "--workers", help="Start given number of workers", type=int)
+    # parser.add_argument("-d", "--debug", help="Enable debug logging in workers",
+    #                     action="store_true")
+    # args = parser.parse_args()
+    # print(f"args: {args}")
     # main()
+

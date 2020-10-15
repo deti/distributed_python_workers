@@ -5,6 +5,7 @@ import logging
 import time
 import urllib.error
 import urllib.request
+from http.client import RemoteDisconnected, HTTPException
 
 import utils
 from db import DatabaseAdapter
@@ -17,7 +18,7 @@ GRACE_PERIOD = 30  # seconds
 def worker():
     database = DatabaseAdapter()
     while True:
-        url, url_id = database.get_next_url()
+        url_id, url = database.get_next_url()
         if url is None:
             logging.info(f"No urls to process. Sleeping for {GRACE_PERIOD}s")
             time.sleep(GRACE_PERIOD)
@@ -37,6 +38,12 @@ def worker():
             database.mark_url_done(url_id, response.code)
         except urllib.error.URLError as e:
             logging.debug(f"Failed to fetch {url_id}: '{url}' because of {e.reason}")
+            database.mark_url_error(url_id)
+        except RemoteDisconnected as e:
+            logging.debug(f"Failed to fetch {url_id}: '{url}' because remote resource disconnected. Reason {e}")
+            database.mark_url_error(url_id)
+        except HTTPException as e:
+            logging.debug(f"Failed to fetch {url_id}: '{url}' Got a HTTPException. Reason {e}")
             database.mark_url_error(url_id)
 
 

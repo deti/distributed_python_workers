@@ -6,6 +6,7 @@ import os
 import signal
 from os import path
 from subprocess import Popen, getoutput
+import time
 
 import utils
 from db import DatabaseAdapter
@@ -13,6 +14,7 @@ from db import DatabaseAdapter
 WORKER_PIDS = ".pids"
 WORKER = "worker.py"
 
+START_DELAY = 0.5
 
 def _info(message, sender: str):
     print(message)
@@ -69,18 +71,20 @@ def load_urls_to_database(urls_file: str):
         return
 
     with open(urls_file) as fp:
+        database.create_urls_table()
+
         with database.connect():
-            with database.commit_context():
+            with database.commit():
                 for url in fp:
                     url = url.strip()
-                    database.insert_url(url)
+                    database.naked_insert_url(url)
                     count += 1
 
     _info(f"Loaded {count} urls into database with {errors} errors", "load_urls_to_database")
 
 
 def start_workers(count: int, debug: bool):
-    print(f"Starting {count} workers")
+    _info(f"Starting {count} workers", "start_workers")
     worker_cmd = [path.join(utils.project_dir(), WORKER)]
     if debug:
         worker_cmd.append("-d")
@@ -88,8 +92,15 @@ def start_workers(count: int, debug: bool):
     with open(get_pid_file(), "at") as fp:
         for i in range(count):
             pid = Popen(worker_cmd).pid
-            logging.info(f"Started worker with pid {pid}")
+            _info(f"Started worker with pid {pid}", "start_workers")
             fp.write(f"{pid}\n")
+            # SQLite doesn't allow multi process safe connection
+            # This delay is for letting workers start safely
+            time.sleep(START_DELAY)
+            # In general this is a weak decision. That shouldn't be done this way in
+            # the Production
+            # On the other hand, in the production we would use better DBMS which
+            # Could handle row-level locks
 
 
 if __name__ == '__main__':
