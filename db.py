@@ -58,7 +58,7 @@ class DatabaseAdapter:
         with self.connect():
             self.conn.execute(
                 """
-           DROP TABLE IF EXISTS urls;
+                DROP TABLE IF EXISTS urls;
                 """
             )
 
