@@ -25,33 +25,33 @@ class ThreadedWorker(Thread):
 
     def run(self) -> None:
         logging.debug(f"{self.name} Enter")
-        with self.database.connect():
-            logging.debug(f"{self.name} with connect")
-            try:
-                logging.debug(f"{self.name} try 01")
-                url_id, url = self.database.get_next_url()
-                logging.debug(f"{self.name} try 02")
-                logging.debug(f"{self.name} — run {url_id}: {url}")
-                logging.debug(f"{self.name} try 03")
-                while url is not None:
-                    started = self.database.start_url_processing(url_id)
-                    if not started:
-                        logging.debug(
-                            f"{self.name}: {url_id}: '{url}' already processed by other worker"
-                        )
-                        url_id, url = self.database.get_next_url()
-                        continue
-
-                    get_url(
-                        url_id=url_id,
-                        url=url,
-                        database=self.database,
-                        prefix=self.name
+        # with self.database.connect():
+        logging.debug(f"{self.name} with connect")
+        try:
+            logging.debug(f"{self.name} try 01")
+            url_id, url = self.database.get_next_url()
+            logging.debug(f"{self.name} try 02")
+            logging.debug(f"{self.name} — run {url_id}: {url}")
+            logging.debug(f"{self.name} try 03")
+            while url is not None:
+                started = self.database.start_url_processing(url_id)
+                if not started:
+                    logging.debug(
+                        f"{self.name}: {url_id}: '{url}' already processed by other worker"
                     )
                     url_id, url = self.database.get_next_url()
+                    continue
 
-            except Exception as e:
-                logging.debug(f"{self.name} got and exception {e}")
+                get_url(
+                    url_id=url_id,
+                    url=url,
+                    database=self.database,
+                    prefix=self.name
+                )
+                url_id, url = self.database.get_next_url()
+
+        except Exception as e:
+            logging.debug(f"{self.name} got and exception {e}")
         logging.debug(f"{self.name} is Done")
 
 
