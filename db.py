@@ -1,7 +1,8 @@
 import sqlite3
-from os import path
-import utils
 from contextlib import contextmanager
+from os import path
+
+import utils
 
 DB_NAME = "./urls.sqlite3"
 DB_TIMEOUT = 20
@@ -15,6 +16,23 @@ STATUS_ERROR = "ERROR"
 class DatabaseAdapter:
     def __init__(self):
         self.db_file = path.join(utils.project_dir(), DB_NAME)
+
+    @contextmanager
+    def connect(self):
+        """
+        Context manager to make sure we don't forget to close connection if we opened it
+        """
+        self.conn = sqlite3.connect(self.db_file, timeout=DB_TIMEOUT, check_same_thread=False)
+        yield
+        self.conn.close()
+
+    @contextmanager
+    def commit(self):
+        """
+        Context manager to make sure we don't forget to commit
+        """
+        yield
+        self.conn.commit()
 
     def create_urls_table(self):
         """
@@ -44,22 +62,7 @@ class DatabaseAdapter:
                 """
             )
 
-    @contextmanager
-    def connect(self):
-        self.conn = sqlite3.connect(self.db_file, timeout=DB_TIMEOUT, check_same_thread=False)
-        yield
-        self.conn.close()
-
-    @contextmanager
-    def commit(self):
-        """
-        Context manager to make multi inserts in to
-        """
-        yield
-        self.conn.commit()
-
-
-    def naked_insert_url(self, url:str):
+    def naked_insert_url(self, url: str):
         """
         Insert given url into Database without commit.
         Should be used with commit

@@ -1,14 +1,16 @@
 import logging
-from os import path
 from logging import handlers
+from os import path
 
 LOG_FILE = "workers.log"
 LOG_FORMAT = "%(asctime)s %(levelname)s: %(message)s"
 
+
 def project_dir():
     return path.dirname(path.realpath(__file__))
 
-def configure_logger(debug: bool=False, log_format:str=None):
+
+def configure_logger(debug: bool = False, log_format: str = None):
     log_file = path.join(project_dir(), LOG_FILE)
 
     if log_format is None:

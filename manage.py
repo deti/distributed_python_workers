@@ -4,9 +4,9 @@ import argparse
 import logging
 import os
 import signal
+import time
 from os import path
 from subprocess import Popen, getoutput
-import time
 
 import utils
 from db import DatabaseAdapter
@@ -16,6 +16,7 @@ WORKER_PIDS = ".pids"
 WORKER = "worker.py"
 
 START_DELAY = 0.5
+
 
 def _info(message, sender: str):
     print(message)
@@ -96,28 +97,29 @@ def start_workers(count: int, debug: bool):
             _info(f"Started worker with pid {pid}", "start_workers")
             fp.write(f"{pid}\n")
             # SQLite doesn't allow multi process safe connection
-            # This delay is for letting workers start safely
+            # This delay is for letting workers at least start safely
             time.sleep(START_DELAY)
             # In general this is a weak decision. That shouldn't be done this way in
             # the Production
             # On the other hand, in the production we would use better DBMS which
             # Could handle row-level locks
 
-def start_threaded_workers(count: int=1):
 
+def start_threaded_workers(count: int = 1):
     threads = [ThreadedWorker(i) for i in range(count)]
 
     for t in threads:
         time.sleep(0.3)
         t.start()
 
-    print(f"Started {count} workers")
+    _info(f"Starting {count} threaded workers", "start_threaded_workers")
 
     for t in threads:
-        print(f"start_threaded_workers: {t.name} — finished it's work")
+        _info(f"{t.name} — finished it's work", "start_threaded_workers")
         t.join()
 
-    print(f"All {count} are done")
+    _info(f"All {count} workers are done", "start_threaded_workers")
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -135,7 +137,8 @@ if __name__ == '__main__':
     parser.add_argument("-l", "--load", help="Path to a file with urls to load into database",
                         type=str)
     parser.add_argument("-w", "--workers", help="Start given number of workers", type=int)
-    parser.add_argument("-t", "--threads", help="Start given number of threaded workers", type=int)
+    parser.add_argument("-t", "--threads", help="Start given number of threaded workers",
+                        type=int)
     parser.add_argument("-d", "--debug", help="Enable debug logging in workers",
                         action="store_true")
     args = parser.parse_args()

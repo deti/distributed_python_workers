@@ -16,49 +16,18 @@ WORKER_LOG_FORMAT = "%(asctime)s worker-%(process)d %(levelname)s: %(message)s"
 GRACE_PERIOD = 30  # seconds
 
 
-class ThreadedWorker(Thread):
-    # def __init__(self, worker_id: int, database: DatabaseAdapter):
-    def __init__(self, worker_id: int):
-        super().__init__()
-        self.name = f"Worker—{worker_id}"
-        self.database = DatabaseAdapter()
+def get_url(url_id: int, url: str, database: DatabaseAdapter, log_prefix: str = None):
+    """
+    Function which actually retrieves url. Receives:
+    - url_id is int
+    - url is str
+    - database is DatabaseAdapter
+    - log_prefix is optional str for logging log_prefix
+    """
 
-    def run(self) -> None:
-        logging.debug(f"{self.name} Enter")
-        # with self.database.connect():
-        logging.debug(f"{self.name} with connect")
-        try:
-            logging.debug(f"{self.name} try 01")
-            url_id, url = self.database.get_next_url()
-            logging.debug(f"{self.name} try 02")
-            logging.debug(f"{self.name} — run {url_id}: {url}")
-            logging.debug(f"{self.name} try 03")
-            while url is not None:
-                started = self.database.start_url_processing(url_id)
-                if not started:
-                    logging.debug(
-                        f"{self.name}: {url_id}: '{url}' already processed by other worker"
-                    )
-                    url_id, url = self.database.get_next_url()
-                    continue
-
-                get_url(
-                    url_id=url_id,
-                    url=url,
-                    database=self.database,
-                    prefix=self.name
-                )
-                url_id, url = self.database.get_next_url()
-
-        except Exception as e:
-            logging.debug(f"{self.name} got and exception {e}")
-        logging.debug(f"{self.name} is Done")
-
-
-def get_url(url_id: int, url: str, database: DatabaseAdapter, prefix: str = None):
     def _debug(message: str):
-        if prefix:
-            message = f"{prefix} {message}"
+        if log_prefix:
+            message = f"{log_prefix} {message}"
         logging.debug(message)
 
     try:
@@ -83,7 +52,46 @@ def get_url(url_id: int, url: str, database: DatabaseAdapter, prefix: str = None
         database.mark_url_error(url_id)
 
 
+class ThreadedWorker(Thread):
+    """
+    Thread to execute in thread-based approach
+    """
+    def __init__(self, worker_id: int):
+        super().__init__()
+        self.name = f"Worker—{worker_id}"
+        self.database = DatabaseAdapter()
+
+    def run(self) -> None:
+        logging.debug(f"{self.name} started")
+
+        url_id, url = self.database.get_next_url()
+
+        while url is not None:
+            started = self.database.start_url_processing(url_id)
+
+            if not started:
+                logging.debug(
+                    f"{self.name}: {url_id}: '{url}' already processed by other worker"
+                )
+                url_id, url = self.database.get_next_url()
+                continue
+
+            get_url(
+                url_id=url_id,
+                url=url,
+                database=self.database,
+                log_prefix=self.name
+            )
+
+            url_id, url = self.database.get_next_url()
+
+        logging.debug(f"{self.name} is done")
+
+
 def worker():
+    """
+    Worker to execute in process-based approach
+    """
     database = DatabaseAdapter()
     while True:
         url_id, url = database.get_next_url()
