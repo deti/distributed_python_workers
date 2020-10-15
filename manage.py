@@ -10,6 +10,7 @@ import time
 
 import utils
 from db import DatabaseAdapter
+from worker import ThreadedWorker
 
 WORKER_PIDS = ".pids"
 WORKER = "worker.py"
@@ -102,6 +103,21 @@ def start_workers(count: int, debug: bool):
             # On the other hand, in the production we would use better DBMS which
             # Could handle row-level locks
 
+def start_threaded_workers(count: int=1):
+
+    threads = [ThreadedWorker(i) for i in range(count)]
+
+    for t in threads:
+        time.sleep(0.3)
+        t.start()
+
+    print(f"Started {count} workers")
+
+    for t in threads:
+        print(f"start_threaded_workers: {t.name} — finished it's work")
+        t.join()
+
+    print(f"All {count} are done")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -119,10 +135,15 @@ if __name__ == '__main__':
     parser.add_argument("-l", "--load", help="Path to a file with urls to load into database",
                         type=str)
     parser.add_argument("-w", "--workers", help="Start given number of workers", type=int)
+    parser.add_argument("-t", "--threads", help="Start given number of threaded workers", type=int)
     parser.add_argument("-d", "--debug", help="Enable debug logging in workers",
                         action="store_true")
     args = parser.parse_args()
     utils.configure_logger(args.debug)
+
+    if args.workers is not None and args.threads is not None:
+        print("You couldn't start both threaded and process based workers simultaneously")
+        exit(1)
 
     if args.stop:
         kill_workers()
@@ -132,6 +153,14 @@ if __name__ == '__main__':
 
     if args.load:
         load_urls_to_database(args.load)
+
+    if args.threads:
+        if args.threads < 1:
+            print("Please let us start at least 1 thread")
+            exit(2)
+        if args.threads > 10:
+            print(f"We let you start {args.threads} but please reconsider it")
+        start_threaded_workers(args.threads)
 
     if args.workers:
         start_workers(args.workers, args.debug)

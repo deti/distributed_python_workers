@@ -46,8 +46,7 @@ class DatabaseAdapter:
 
     @contextmanager
     def connect(self):
-        self.conn = sqlite3.connect(self.db_file, timeout=DB_TIMEOUT)
-        self.cursor = self.conn.cursor()
+        self.conn = sqlite3.connect(self.db_file, timeout=DB_TIMEOUT, check_same_thread=False)
         yield
         self.conn.close()
 
@@ -74,17 +73,18 @@ class DatabaseAdapter:
         """
         Insert given url into Database and commits it
         """
-        with self.connect():
-            with self.commit():
-                self.naked_insert_url(url)
+        # with self.connect():
+        with self.commit():
+            self.naked_insert_url(url)
 
     def get_next_url(self) -> (int, str):
         """
         Give next id and url to process. Returns tuple of None if no urls found
         """
-        with self.connect():
-            self.cursor.execute("SELECT * FROM urls WHERE status=?", (STATUS_NEW,))
-            url = self.cursor.fetchone()
+        # with self.connect():
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM urls WHERE status=?", (STATUS_NEW,))
+        url = cursor.fetchone()
         if url is None:
             return None, None
         return url[0], url[1]
@@ -94,34 +94,37 @@ class DatabaseAdapter:
         Receives url_id which we are going to start processing.
         Returns True if processing started successfully.
         """
-        with self.connect():
-            with self.commit():
-                self.cursor.execute(
-                    "UPDATE urls SET status=? WHERE id=? AND status=?",
-                    (STATUS_PROCESSING, url_id, STATUS_NEW),
-                )
-                if self.cursor.rowcount < 1:
-                    return False
+        # with self.connect():
+        with self.commit():
+            cursor = self.conn.cursor()
+            cursor.execute(
+                "UPDATE urls SET status=? WHERE id=? AND status=?",
+                (STATUS_PROCESSING, url_id, STATUS_NEW),
+            )
+            if cursor.rowcount < 1:
+                return False
         return True
 
     def mark_url_done(self, url_id, http_code: int):
         """
         Mark given url id as an Done, and save code of http response
         """
-        with self.connect():
-            with self.commit():
-                self.cursor.execute(
-                    "UPDATE urls SET status=?, http_code=? WHERE id=?",
-                    (STATUS_DONE, http_code, url_id)
-                )
+        # with self.connect():
+        with self.commit():
+            cursor = self.conn.cursor()
+            cursor.execute(
+                "UPDATE urls SET status=?, http_code=? WHERE id=?",
+                (STATUS_DONE, http_code, url_id)
+            )
 
     def mark_url_error(self, url_id: int):
         """
         Mark given url id as an Error
         """
-        with self.connect():
-            with self.commit():
-                self.cursor.execute(
-                    "UPDATE urls SET status=? WHERE id=?",
-                    (STATUS_ERROR, url_id)
-                )
+        # with self.connect():
+        with self.commit():
+            cursor = self.conn.cursor()
+            cursor.execute(
+                "UPDATE urls SET status=? WHERE id=?",
+                (STATUS_ERROR, url_id)
+            )
